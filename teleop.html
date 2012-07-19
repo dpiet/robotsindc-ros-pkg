@@ -1,0 +1,116 @@
+    <html>
+      <head>
+        <script type="text/javascript" src="http://brown-ros-pkg.googlecode.com/svn/tags/brown-ros-pkg/rosbridge/ros.js"></script>
+        <script type="text/javascript">
+function nop() {} /* console for logging */
+var console = null;
+var connection = null;
+
+function pub() {
+          connection.publish('/cmd_vel', 'geometry_msgs/Twist', '{"linear":{"x":' + x + ',"y":0,"z":0}, "angular":{"x":0,"y":0,"z":' + z + '}}');
+        }
+
+function log(msg) {
+  if (console == null) return;
+  console.innerHTML = console.innerHTML + msg + "<br/>"; 
+} 
+
+function init() { 
+  function waitForDOM() { 
+    var cnsl = document.getElementById('console');
+    if (cnsl == null) {
+      setTimeout(waitForDOM, 100);
+    } else {
+      console = cnsl;
+      setTimeout(main, 0);
+    } 
+  }
+  setTimeout(waitForDOM, 100); 
+}
+
+function handleKey(code, down) {
+          var scale = 0;
+          if (down == true) {
+            scale = 1;
+          }
+	  //log('Code: ' + code);
+          switch (code) {
+          case 65:
+            //left
+            z = 1 * scale;
+	    x = 100 * scale;
+            break;
+          case 87:
+            //up
+            x = 100 * scale;
+	    z = 32768 * scale;
+            break;
+          case 68:
+            //right 
+            z = -1 * scale;
+	    x = 100 * scale;
+            break;
+          case 83:
+            //down
+            x = -100 * scale;
+	    z = 32768 * scale;
+            break;
+	  case 81:
+            //stop
+            x = 0;
+	    z = 0;
+            break;
+          }
+          pub();
+        }
+
+function main() {
+    var x = 0;
+    var z = 0;
+    log('console initialized');
+    var connectInfo = document.location.toString();
+  
+    log('creating ROSProxy connection object...');
+
+    try {
+      connection = new ros.Connection("ws://192.168.1.106:9090");
+    } catch (err) {
+      log('Problem creating proxy connection object!');
+    return;
+  }
+
+  log('connection created');
+    
+      connection.setOnClose(function (e) {
+        log('connection closed');
+      });
+      connection.setOnError(function (e) {
+        log('network error!');
+      });
+      connection.setOnOpen(function (e) {
+        log('connected');
+
+        
+        document.addEventListener('keydown', function (e) {
+          handleKey(e.keyCode, true);
+        }, true);
+        document.addEventListener('keyup', function (e) {
+          handleKey(e.keyCode, false);
+        }, true);
+      });
+    }
+        </script>
+      </head>
+    <body onload="init()">
+	<div>
+	Keyboard controls: Up (w), Down (s), Left (a), Right (d)
+	</div>
+	<button type="button" onclick="handleKey(87, true)">Up</button>
+	<button type="button" onclick="handleKey(83, true)">Down</button>
+	<button type="button" onclick="handleKey(65, true)">Left</button>
+	<button type="button" onclick="handleKey(68, true)">Right</button>
+	<button type="button" onclick="handleKey(81, true)">Stop</button><br /><br />
+Log:<br />
+<div id="console" style="margin-left: 1em;"></div>
+    </body>
+    </html>
