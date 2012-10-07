@@ -1,0 +1,195 @@
+    <html>
+      <head>
+        <script type="text/javascript" src="http://brown-ros-pkg.googlecode.com/svn/tags/brown-ros-pkg/rosbridge/ros.js"></script>
+        <script type="text/javascript">
+function nop() {} /* console for logging */
+var console = null;
+var connection = null;
+// set up video stream
+      var kinect_img = new Image();
+function pub() {
+          connection.publish('/cmd_vel', 'geometry_msgs/Twist', '{"linear":{"x":' + x + ',"y":0,"z":0}, "angular":{"x":0,"y":0,"z":' + z + '}}');
+        }
+
+function log(msg) {
+  if (console == null) return;
+  console.innerHTML = console.innerHTML + msg + "<br/>"; 
+} 
+
+function init() { 
+  function waitForDOM() { 
+    var cnsl = document.getElementById('console');
+    if (cnsl == null) {
+      setTimeout(waitForDOM, 100);
+    } else {
+      console = cnsl;
+      setTimeout(main, 0);
+    } 
+  }
+  setTimeout(waitForDOM, 100); 
+}
+
+function handleKey(code, down) {
+          var scale = 0;
+          if (down == true) {
+            scale = 1;
+          }
+	  //log('Code: ' + code);
+          switch (code) {
+          case 65:
+            //left
+            z = 1 * scale;
+	    x = 100 * scale;
+            break;
+          case 87:
+            //up
+            x = 100 * scale;
+	    z = 32768 * scale;
+            break;
+          case 68:
+            //right 
+            z = -1 * scale;
+	    x = 100 * scale;
+            break;
+          case 83:
+            //down
+            x = -100 * scale;
+	    z = 32768 * scale;
+            break;
+	  case 81:
+            //stop
+            x = 0;
+	    z = 0;
+            break;
+          }
+          pub();
+        }
+
+function dynamically_set_video() {
+             log('console initialized');
+        
+            log('creating video ROSProxy connection object...');
+        var connection = null;
+        try {
+            connection = new ros.Connection("ws://192.168.1.106:9090");
+        } catch (err) {
+            log('Problem creating proxy connection object!');
+            return;
+        }
+           log('created');
+           log('connecting to 192.168.1.106:9090' + '...');
+        
+        connection.setOnClose(function (e) {
+            log('connection closed');
+        });
+        connection.setOnError(function (e) {
+            log('network error!');
+        });
+        connection.setOnOpen(function (e) {
+            log('connected');
+            log('initializing ROSProxy...');
+            try {
+                connection.callService('/rosjs/topics', '[]', nop);
+            } catch (error) {
+                log('Problem initializing ROSProxy!');
+                return;
+            }
+            log('initialized');       
+            log('running');  
+            log('trying to create topic Handler and read data back from topic');
+            connection.addHandler('/camera/rgb/camera_info',function(msg) {
+        width = msg.width;
+        height = msg.height;
+
+            log("dynamically adjusted width = " + width);
+            log("dynamically adjusted height = " + height);
+
+    document.getElementById("video_canvas").setAttribute("width",width)   
+    document.getElementById("video_canvas").setAttribute("height",height)
+
+        connection.callService('/rosjs/unsubscribe','["/camera/rgb/camera_info",0]',function(rsp) {
+            log('unsubscribed to /camera/rgb/camera_info');
+    });
+
+    });
+    connection.callService('/rosjs/subscribe','["/camera/rgb/camera_info",0]',function(rsp) {
+           log('subscribed to /camera/rgb/camera_info');
+    });     
+ 
+        });
+    }
+
+function draw() {
+  			// draw video on single canvas
+  			var ctx = document.getElementById('video_canvas').getContext('2d');
+ 			 ctx.drawImage(kinect_img,0,0,width,height);
+			}
+
+function main() {
+    var x = 0;
+    var z = 0;
+    
+    log('console initialized');
+    var connectInfo = document.location.toString();
+  
+    log('creating ROSProxy connection object...');
+
+    try {
+      connection = new ros.Connection("ws://192.168.1.106:9090");
+    } catch (err) {
+      log('Problem creating proxy connection object!');
+    return;
+  }
+
+  log('connection created');
+    
+      connection.setOnClose(function (e) {
+        log('connection closed');
+      });
+      connection.setOnError(function (e) {
+        log('network error!');
+      });
+      connection.setOnOpen(function (e) {
+        log('connected');
+
+        
+        document.addEventListener('keydown', function (e) {
+          handleKey(e.keyCode, true);
+        }, true);
+        document.addEventListener('keyup', function (e) {
+          handleKey(e.keyCode, false);
+        }, true);
+      
+      
+      
+
+        	// set variables for adjusting canvas and video resolution settings
+   			 var width = "320" //default width
+			 var height = "240"  //default height
+       		 log("default width = " + width);
+       		 log("default height = " + height);
+
+    		//get kinect video stream width and height values from rostopic via rosbridge
+   			dynamically_set_video();
+   			kinect_img.src = "http://192.168.1.106:9091/stream?topic=/camera/rgb/image_color";
+         log("after get kinect link");
+  		//call redraw of video canvas every 100 ms
+ 		 setInterval(draw,100);
+   		}); //end setOnOpen
+    }
+        </script>
+      </head>
+    <body onload="init()">
+	<div>
+	Keyboard controls: Up (w), Down (s), Left (a), Right (d)
+	</div>
+	<button type="button" onclick="handleKey(87, true)">Up</button>
+	<button type="button" onclick="handleKey(83, true)">Down</button>
+	<button type="button" onclick="handleKey(65, true)">Left</button>
+	<button type="button" onclick="handleKey(68, true)">Right</button>
+	<button type="button" onclick="handleKey(81, true)">Stop</button><br /><br />
+	 <canvas id="video_canvas" width="javascript:getWidth()" height="javascript:getHeight()"> </canvas> 
+Log:<br />
+<div id="console" style="margin-left: 1em;"></div>
+    </body>
+    </html>
